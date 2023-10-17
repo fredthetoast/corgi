@@ -141,6 +141,10 @@ def render_normal(screen, dt):
     else:
         dog.set_speed(0)
 
+    # sprint
+    if is_key_pressed(pygame.K_LSHIFT):
+        dog.set_speed(dog_sprint_speed)
+
     dog.animate(dt)
     dog.render(screen)
 
@@ -180,6 +184,7 @@ grass_img = pygame.image.load("assets/backgrounds/grass.png")
 grass = pygame.transform.scale(grass_img,(225, 225))
 
 dog_speed = 12
+dog_sprint_speed = 20
 dog = SpriteAnim((0, 0), sheet_textures(DOG_SHEET))
 
 
