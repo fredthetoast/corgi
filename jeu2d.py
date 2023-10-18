@@ -93,7 +93,16 @@ class SpriteAnim():
             y = 800
 
         self.pos = (x, y)
-        # self.pos[1] ....
+
+    def decay(self, dt):
+        if self.speed > 0.0:
+            before = self.speed
+            decay = dt * 25.0
+            if self.speed > decay:
+                self.speed = self.speed - decay
+            else:
+                self.speed = 0
+            print(f'Speed: before={before} after={self.speed}')
 
     def set_pos(self, pos):
         self.pos = pos
@@ -144,11 +153,11 @@ def render_normal(screen, dt):
             dog.set_speed(dog_sprint_speed)
         else:
             dog.set_speed(dog_speed)
-    else:
-        dog.set_speed(0)
 
     dog.animate(dt)
     dog.render(screen)
+
+    dog.decay(dt)
 
     if is_key_pressed(pygame.K_ESCAPE):
         return MODE_SPLASH
