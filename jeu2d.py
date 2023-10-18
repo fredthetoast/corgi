@@ -126,24 +126,26 @@ def render_normal(screen, dt):
 
     place_texture(grass, 225, 1200, 800)            
 
+    dir_key_pressed = True
     if is_key_pressed(pygame.K_w):
         dog.set_direction(SPRITE_UP)
-        dog.set_speed(dog_speed)
     elif is_key_pressed(pygame.K_s):
         dog.set_direction(SPRITE_DOWN)
-        dog.set_speed(dog_speed)
     elif is_key_pressed(pygame.K_a):
         dog.set_direction(SPRITE_LEFT)
-        dog.set_speed(dog_speed)
     elif is_key_pressed(pygame.K_d):
         dog.set_direction(SPRITE_RIGHT)
-        dog.set_speed(dog_speed)
+    else:
+        dir_key_pressed = False
+
+    if dir_key_pressed:
+        # sprint
+        if is_key_pressed(pygame.K_LSHIFT):
+            dog.set_speed(dog_sprint_speed)
+        else:
+            dog.set_speed(dog_speed)
     else:
         dog.set_speed(0)
-
-    # sprint
-    if is_key_pressed(pygame.K_LSHIFT):
-        dog.set_speed(dog_sprint_speed)
 
     dog.animate(dt)
     dog.render(screen)
