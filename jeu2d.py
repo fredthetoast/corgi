@@ -56,32 +56,75 @@ class SpriteAnim():
     def __init__(self, pos, tex_array):
         self.pos = pos
         self.textures = tex_array
-        self.dir = 0
         self.cur = 0
-        self.speed = 0
+        self.speed = (0, 0)
 
-    def render(self, screen):
+
+    def render(self, screen, dt):
         """Display sprite on screen."""
-        # screen.blit(self.textures[self.dir][self.cur])
-        anim_line = self.textures[self.dir]
+
+        # move is more horizontal or vertical?
+        dir = 0
+        speed = 0
+
+        if abs(self.speed[0]) > abs(self.speed[1]):
+            
+            # left or right?
+            if self.speed[0] > 0:
+                dir = SPRITE_RIGHT
+            else:
+                dir = SPRITE_LEFT
+            
+            speed = abs(self.speed[0])
+        
+        else:
+            # up or down?
+            if self.speed[1] > 0:
+                dir = SPRITE_DOWN
+            else:
+                dir = SPRITE_UP
+
+            speed = abs(self.speed[1])
+
+        self.cur += dt * speed * 2.0
+
+        anim_line = self.textures[dir]
         tex = anim_line[int(self.cur) % len(anim_line)]
+        
         screen.blit(tex, self.pos)
 
-    def animate(self, dt):
+
+    def animate(self, dt, accel):
         """Moves the sprite according to speed and direction"""
-        self.cur = (self.cur + dt * self.speed)
+
+        ax, ay = accel
+        if ax == 0:
+            ax = -self.speed[0]
+
+        if ay == 0:
+            ay = -self.speed[1]
+
+        self.speed = (self.speed[0] + ax * dt,
+                      self.speed[1] + ay * dt)
+
+        if self.speed[0] > 8:
+            self.speed = (8, self.speed[1])
+
+        if self.speed[0] < -8:
+            self.speed = (-8, self.speed[1])
+
+        if self.speed[1] > 8:
+            self.speed = (self.speed[0], 8)
+
+        if self.speed[1] < -8:
+            self.speed = (self.speed[0], -8)
+
         x, y = self.pos
+        dp = (self.speed[0], self.speed[1])
 
-        dp = self.speed / 5.0
-        if self.dir == SPRITE_DOWN:
-            y = y + dp
-        elif self.dir == SPRITE_UP:
-            y = y - dp
-        elif self.dir == SPRITE_LEFT:
-            x = x - dp
-        elif self.dir == SPRITE_RIGHT:
-            x = x + dp
-
+        x = x + dp[0]
+        y = y + dp[1]
+        
         if x > 1200:
             x = -80
         elif x < -80:
@@ -94,24 +137,23 @@ class SpriteAnim():
 
         self.pos = (x, y)
 
+
     def decay(self, dt):
-        if self.speed > 0.0:
-            before = self.speed
-            decay = dt * 25.0
-            if self.speed > decay:
-                self.speed = self.speed - decay
-            else:
-                self.speed = 0
-            print(f'Speed: before={before} after={self.speed}')
+        pass
+        # if self.speed > 0.0:
+        #     before = self.speed
+        #     decay = dt * 25.0
+        #     if self.speed > decay:
+        #         self.speed = self.speed - decay
+        #     else:
+        #         self.speed = 0
+        #     print(f'Speed: before={before} after={self.speed}')
 
     def set_pos(self, pos):
         self.pos = pos
 
     def set_speed(self, speed):
         self.speed = speed
-
-    def set_direction(self, dir):
-        self.dir = dir
     
 
 def load_texture(filename):
@@ -135,29 +177,31 @@ def render_normal(screen, dt):
 
     place_texture(grass, 225, 1200, 800)            
 
-    dir_key_pressed = True
+    dir = (0, 0)
     if is_key_pressed(pygame.K_w):
-        dog.set_direction(SPRITE_UP)
+        dir = (0, -1)
     elif is_key_pressed(pygame.K_s):
-        dog.set_direction(SPRITE_DOWN)
+        dir = (0, 1)
     elif is_key_pressed(pygame.K_a):
-        dog.set_direction(SPRITE_LEFT)
+        dir = (-1, 0)
     elif is_key_pressed(pygame.K_d):
-        dog.set_direction(SPRITE_RIGHT)
-    else:
-        dir_key_pressed = False
+        dir = (1, 0)
+    
+    # sprint
+    speed = dog_speed
+    if is_key_pressed(pygame.K_LSHIFT):
+        speed = dog_sprint_speed
 
-    if dir_key_pressed:
-        # sprint
-        if is_key_pressed(pygame.K_LSHIFT):
-            dog.set_speed(dog_sprint_speed)
-        else:
-            dog.set_speed(dog_speed)
+    accel = (dir[0] * speed, dir[1] * speed)        
 
-    dog.animate(dt)
-    dog.render(screen)
+    dog.animate(dt, accel)
+    dog.render(screen, dt)
 
     dog.decay(dt)
+
+    render_text(screen, myfont,
+        f'Speed: {int(dog.speed[0])} {int(dog.speed[1])}',
+        (5, 5), 0, ('black'))
 
     if is_key_pressed(pygame.K_ESCAPE):
         return MODE_SPLASH
@@ -166,21 +210,19 @@ def render_normal(screen, dt):
 
 
 def render_text(screen, font, text, pos, antialiasing, color):
-    thefont = font
-    label = thefont.render(text, antialiasing, (color) )
+    label = font.render(text, antialiasing, (color) )
     screen.blit(label, (pos))
 
 
 def render_splash(screen, dt):
-    myfont = pygame.font.Font("assets/fonts/Pokemon_GB.ttf", 32)  
-    menu_image = pygame.image.load('assets/backgrounds/menu_image.png')
 
     menu = pygame.transform.scale(menu_image, (1200, 800))
     screen.blit(menu, (0, 0))
 
-# blitting text on to menu
+    # blitting text on to menu
     render_text(screen, myfont, "Go Corgi", (450, 500), 0, ('black') )
     render_text(screen, myfont, "[SPACE]", (470,537 ), 0, ('black'))
+
     if is_key_pressed(pygame.K_SPACE):
         return MODE_NORMAL
 
@@ -190,14 +232,16 @@ def render_splash(screen, dt):
 # main program
 screen, clock = init()
 game_running = True
-
+    
 grass_img = pygame.image.load("assets/backgrounds/grass.png")
 grass = pygame.transform.scale(grass_img,(225, 225))
+
+myfont = pygame.font.Font("assets/fonts/Pokemon_GB.ttf", 32)  
+menu_image = pygame.image.load('assets/backgrounds/menu_image.png')
 
 dog_speed = 12
 dog_sprint_speed = 20
 dog = SpriteAnim((0, 0), sheet_textures(DOG_SHEET))
-
 
 game_mode = MODE_NORMAL
 
