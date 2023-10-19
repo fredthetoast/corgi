@@ -1,6 +1,8 @@
 import pygame
 import sys
 
+from vector import Vec2
+
 MODE_NORMAL = 0
 MODE_SPLASH = 1
 MODE_INVENTORY = 2
@@ -56,63 +58,96 @@ class SpriteAnim():
     def __init__(self, pos, tex_array):
         self.pos = pos
         self.textures = tex_array
-        self.dir = 0
         self.cur = 0
-        self.speed = 0
+        self.speed = Vec2()
 
-    def render(self, screen):
+
+    def render(self, screen, dt):
         """Display sprite on screen."""
-        # screen.blit(self.textures[self.dir][self.cur])
-        anim_line = self.textures[self.dir]
+
+        # move is more horizontal or vertical?
+        dir = 0
+        speed = 0
+
+        if abs(self.speed.x) > abs(self.speed.y):
+            
+            # left or right?
+            if self.speed.x > 0:
+                dir = SPRITE_RIGHT
+            else:
+                dir = SPRITE_LEFT
+            
+            speed = abs(self.speed.x)
+        
+        else:
+            # up or down?
+            if self.speed.y > 0:
+                dir = SPRITE_DOWN
+            else:
+                dir = SPRITE_UP
+
+            speed = abs(self.speed.y)
+
+        self.cur += dt * speed * 2.0
+
+        anim_line = self.textures[dir]
         tex = anim_line[int(self.cur) % len(anim_line)]
-        screen.blit(tex, self.pos)
+        
+        screen.blit(tex, self.pos.to_tuple())
 
-    def animate(self, dt):
+
+    def animate(self, dt, accel):
         """Moves the sprite according to speed and direction"""
-        self.cur = (self.cur + dt * self.speed)
-        x, y = self.pos
 
-        dp = self.speed / 5.0
-        if self.dir == SPRITE_DOWN:
-            y = y + dp
-        elif self.dir == SPRITE_UP:
-            y = y - dp
-        elif self.dir == SPRITE_LEFT:
-            x = x - dp
-        elif self.dir == SPRITE_RIGHT:
-            x = x + dp
+        if accel.x == 0:
+            accel.x = -self.speed.x
 
-        if x > 1200:
-            x = -80
-        elif x < -80:
-            x = 1200
+        if accel.y == 0:
+            accel.y = -self.speed.y
 
-        if y > 800:
-            y = -80
-        elif y < -80:
-            y = 800
+        self.speed = self.speed.add_vec2(accel.mul_cst(dt))
+        self.speed = self.speed.apply(limit(8))
 
-        self.pos = (x, y)
+        self.pos = self.pos.add_vec2(self.speed) 
+
+        if self.pos.x > 1200:
+            self.pos.x = -80
+        elif self.pos.x < -80:
+            self.pos.x = 1200
+
+        if self.pos.y > 800:
+            self.pos.y = -80
+        elif self.pos.y < -80:
+            self.pos.y = 800
+
 
     def decay(self, dt):
-        if self.speed > 0.0:
-            before = self.speed
-            decay = dt * 25.0
-            if self.speed > decay:
-                self.speed = self.speed - decay
-            else:
-                self.speed = 0
-            print(f'Speed: before={before} after={self.speed}')
+        pass
+        # if self.speed > 0.0:
+        #     before = self.speed
+        #     decay = dt * 25.0
+        #     if self.speed > decay:
+        #         self.speed = self.speed - decay
+        #     else:
+        #         self.speed = 0
+        #     print(f'Speed: before={before} after={self.speed}')
 
     def set_pos(self, pos):
         self.pos = pos
 
     def set_speed(self, speed):
         self.speed = speed
-
-    def set_direction(self, dir):
-        self.dir = dir
     
+
+def limit(n):
+    def g(x):
+        if x < -n:
+            return -n
+        if x > n:
+            return n
+        return x
+    return g
+
 
 def load_texture(filename):
     tex = pygame.image.load(filename)
@@ -135,29 +170,31 @@ def render_normal(screen, dt):
 
     place_texture(grass, 225, 1200, 800)            
 
-    dir_key_pressed = True
+    dir = Vec2()
     if is_key_pressed(pygame.K_w):
-        dog.set_direction(SPRITE_UP)
+        dir = Vec2(0, -1)
     elif is_key_pressed(pygame.K_s):
-        dog.set_direction(SPRITE_DOWN)
+        dir = Vec2(0, 1)
     elif is_key_pressed(pygame.K_a):
-        dog.set_direction(SPRITE_LEFT)
+        dir = Vec2(-1, 0)
     elif is_key_pressed(pygame.K_d):
-        dog.set_direction(SPRITE_RIGHT)
-    else:
-        dir_key_pressed = False
+        dir = Vec2(1, 0)
+    
+    # sprint
+    speed = dog_speed
+    if is_key_pressed(pygame.K_LSHIFT):
+        speed = dog_sprint_speed
 
-    if dir_key_pressed:
-        # sprint
-        if is_key_pressed(pygame.K_LSHIFT):
-            dog.set_speed(dog_sprint_speed)
-        else:
-            dog.set_speed(dog_speed)
+    accel = dir.mul_cst(speed)        
 
-    dog.animate(dt)
-    dog.render(screen)
+    dog.animate(dt, accel)
+    dog.render(screen, dt)
 
     dog.decay(dt)
+
+    render_text(screen, myfont,
+        f'Speed: {int(dog.speed.x)} {int(dog.speed.y)}',
+        (5, 5), 0, ('black'))
 
     if is_key_pressed(pygame.K_ESCAPE):
         return MODE_SPLASH
@@ -166,21 +203,19 @@ def render_normal(screen, dt):
 
 
 def render_text(screen, font, text, pos, antialiasing, color):
-    thefont = font
-    label = thefont.render(text, antialiasing, (color) )
+    label = font.render(text, antialiasing, (color) )
     screen.blit(label, (pos))
 
 
 def render_splash(screen, dt):
-    myfont = pygame.font.Font("assets/fonts/Pokemon_GB.ttf", 32)  
-    menu_image = pygame.image.load('assets/backgrounds/menu_image.png')
 
     menu = pygame.transform.scale(menu_image, (1200, 800))
     screen.blit(menu, (0, 0))
 
-# blitting text on to menu
+    # blitting text on to menu
     render_text(screen, myfont, "Go Corgi", (450, 500), 0, ('black') )
     render_text(screen, myfont, "[SPACE]", (470,537 ), 0, ('black'))
+
     if is_key_pressed(pygame.K_SPACE):
         return MODE_NORMAL
 
@@ -190,14 +225,16 @@ def render_splash(screen, dt):
 # main program
 screen, clock = init()
 game_running = True
-
+    
 grass_img = pygame.image.load("assets/backgrounds/grass.png")
 grass = pygame.transform.scale(grass_img,(225, 225))
 
+myfont = pygame.font.Font("assets/fonts/Pokemon_GB.ttf", 32)  
+menu_image = pygame.image.load('assets/backgrounds/menu_image.png')
+
 dog_speed = 12
 dog_sprint_speed = 20
-dog = SpriteAnim((0, 0), sheet_textures(DOG_SHEET))
-
+dog = SpriteAnim(Vec2(), sheet_textures(DOG_SHEET))
 
 game_mode = MODE_NORMAL
 
