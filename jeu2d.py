@@ -1,6 +1,8 @@
 import pygame
 import sys
 
+from vector import Vec2
+
 MODE_NORMAL = 0
 MODE_SPLASH = 1
 MODE_INVENTORY = 2
@@ -57,7 +59,7 @@ class SpriteAnim():
         self.pos = pos
         self.textures = tex_array
         self.cur = 0
-        self.speed = (0, 0)
+        self.speed = Vec2()
 
 
     def render(self, screen, dt):
@@ -67,75 +69,56 @@ class SpriteAnim():
         dir = 0
         speed = 0
 
-        if abs(self.speed[0]) > abs(self.speed[1]):
+        if abs(self.speed.x) > abs(self.speed.y):
             
             # left or right?
-            if self.speed[0] > 0:
+            if self.speed.x > 0:
                 dir = SPRITE_RIGHT
             else:
                 dir = SPRITE_LEFT
             
-            speed = abs(self.speed[0])
+            speed = abs(self.speed.x)
         
         else:
             # up or down?
-            if self.speed[1] > 0:
+            if self.speed.y > 0:
                 dir = SPRITE_DOWN
             else:
                 dir = SPRITE_UP
 
-            speed = abs(self.speed[1])
+            speed = abs(self.speed.y)
 
         self.cur += dt * speed * 2.0
 
         anim_line = self.textures[dir]
         tex = anim_line[int(self.cur) % len(anim_line)]
         
-        screen.blit(tex, self.pos)
+        screen.blit(tex, self.pos.to_tuple())
 
 
     def animate(self, dt, accel):
         """Moves the sprite according to speed and direction"""
 
-        ax, ay = accel
-        if ax == 0:
-            ax = -self.speed[0]
+        if accel.x == 0:
+            accel.x = -self.speed.x
 
-        if ay == 0:
-            ay = -self.speed[1]
+        if accel.y == 0:
+            accel.y = -self.speed.y
 
-        self.speed = (self.speed[0] + ax * dt,
-                      self.speed[1] + ay * dt)
+        self.speed = self.speed.add_vec2(accel.mul_cst(dt))
+        self.speed = self.speed.apply(limit(8))
 
-        if self.speed[0] > 8:
-            self.speed = (8, self.speed[1])
+        self.pos = self.pos.add_vec2(self.speed) 
 
-        if self.speed[0] < -8:
-            self.speed = (-8, self.speed[1])
+        if self.pos.x > 1200:
+            self.pos.x = -80
+        elif self.pos.x < -80:
+            self.pos.x = 1200
 
-        if self.speed[1] > 8:
-            self.speed = (self.speed[0], 8)
-
-        if self.speed[1] < -8:
-            self.speed = (self.speed[0], -8)
-
-        x, y = self.pos
-        dp = (self.speed[0], self.speed[1])
-
-        x = x + dp[0]
-        y = y + dp[1]
-        
-        if x > 1200:
-            x = -80
-        elif x < -80:
-            x = 1200
-
-        if y > 800:
-            y = -80
-        elif y < -80:
-            y = 800
-
-        self.pos = (x, y)
+        if self.pos.y > 800:
+            self.pos.y = -80
+        elif self.pos.y < -80:
+            self.pos.y = 800
 
 
     def decay(self, dt):
@@ -155,6 +138,16 @@ class SpriteAnim():
     def set_speed(self, speed):
         self.speed = speed
     
+
+def limit(n):
+    def g(x):
+        if x < -n:
+            return -n
+        if x > n:
+            return n
+        return x
+    return g
+
 
 def load_texture(filename):
     tex = pygame.image.load(filename)
@@ -177,22 +170,22 @@ def render_normal(screen, dt):
 
     place_texture(grass, 225, 1200, 800)            
 
-    dir = (0, 0)
+    dir = Vec2()
     if is_key_pressed(pygame.K_w):
-        dir = (0, -1)
+        dir = Vec2(0, -1)
     elif is_key_pressed(pygame.K_s):
-        dir = (0, 1)
+        dir = Vec2(0, 1)
     elif is_key_pressed(pygame.K_a):
-        dir = (-1, 0)
+        dir = Vec2(-1, 0)
     elif is_key_pressed(pygame.K_d):
-        dir = (1, 0)
+        dir = Vec2(1, 0)
     
     # sprint
     speed = dog_speed
     if is_key_pressed(pygame.K_LSHIFT):
         speed = dog_sprint_speed
 
-    accel = (dir[0] * speed, dir[1] * speed)        
+    accel = dir.mul_cst(speed)        
 
     dog.animate(dt, accel)
     dog.render(screen, dt)
@@ -200,7 +193,7 @@ def render_normal(screen, dt):
     dog.decay(dt)
 
     render_text(screen, myfont,
-        f'Speed: {int(dog.speed[0])} {int(dog.speed[1])}',
+        f'Speed: {int(dog.speed.x)} {int(dog.speed.y)}',
         (5, 5), 0, ('black'))
 
     if is_key_pressed(pygame.K_ESCAPE):
@@ -241,7 +234,7 @@ menu_image = pygame.image.load('assets/backgrounds/menu_image.png')
 
 dog_speed = 12
 dog_sprint_speed = 20
-dog = SpriteAnim((0, 0), sheet_textures(DOG_SHEET))
+dog = SpriteAnim(Vec2(), sheet_textures(DOG_SHEET))
 
 game_mode = MODE_NORMAL
 
